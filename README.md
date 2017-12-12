@@ -1,6 +1,6 @@
 # NgxCompleter
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 1.6.0.
+This project is a fork of [ng2-completer](https://github.com/oferh/ng2-completer) version 2 Generated with [Angular CLI](https://github.com/angular/angular-cli) version 1.6.0.
 
 ## Development server
 
