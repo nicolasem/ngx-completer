@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { DataService } from './modules/ngx-completer/services/data.service';
 import { CompleterService } from './modules/ngx-completer/services/completer.service';
+import { CompleterItem } from './modules/ngx-completer/model/completer-item';
 
 @Component({
   selector: 'app-root',
@@ -12,6 +13,7 @@ export class AppComponent {
     this.dataService = this.completerService.local(this.quotes, 'id,nm', 'nm').descriptionField('qt');
   }
 
+  public selectedQuote: string;
   public quote: string;
   public dataService: DataService;
   public quotes = [
@@ -67,4 +69,12 @@ export class AppComponent {
       nm: 'W. Somerset Maugham'
     }
   ];
+
+  public onSelectedQuote(item: CompleterItem) {
+    if (item == null) {
+      this.selectedQuote = null;
+    } else {
+      this.selectedQuote = item.title;
+    }
+  }
 }

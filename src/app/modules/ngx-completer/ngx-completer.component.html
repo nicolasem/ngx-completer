@@ -1,43 +1,8 @@
 <div class="completer-holder" ctrCompleter>
-  <input #ctrInput [attr.id]="inputId.length > 0 ? inputId : null" type="search" class="completer-input" ctrInput [ngClass]="inputClass"
-      [(ngModel)]="searchStr" (ngModelChange)="onChange($event)" [attr.name]="inputName" [placeholder]="placeholder"
-      [attr.maxlength]="maxChars" [tabindex]="fieldTabindex" [disabled]="disableInput"
-      [clearSelected]="clearSelected" [clearUnselected]="clearUnselected"
-      [overrideSuggested]="overrideSuggested" [openOnFocus]="openOnFocus" [fillHighlighted]="fillHighlighted"
-      [openOnClick]="openOnClick" [selectOnClick]="selectOnClick" [selectOnFocus]="selectOnFocus"
-      (blur)="onBlur()" (focus)="onFocus()" (keyup)="onKeyup($event)" (keydown)="onKeydown($event)" (click)="onClick($event)"
-      autocomplete="off" autocorrect="off" autocapitalize="off" />
+  <input [attr.id]="inputId.length > 0 ? inputId : null" type="search" [ngClass]="inputClass" [(ngModel)]="searchStr" (ngModelChange)="textInputSubject.next($event)"
+    [attr.name]="inputName" [attr.maxlength]="maxChars" [disabled]="disableInput" autocomplete="off" autocorrect="off" autocapitalize="off"
+    ngx-completer-input (moveDown)="completerDropdown.moveDown()" (moveUp)="completerDropdown.moveUp()" (selection)="doSelection()"
+  (blur)="onBlur($event)" (focus)="onFocus($event)"/>
 
-  <div class="completer-dropdown-holder"
-      *ctrList="dataService;
-          minSearchLength: minSearchLength;
-          pause: pause;
-          autoMatch: autoMatch;
-          autoMatchBy: autoMatchBy;
-          initialValue: initialValue;
-          autoHighlight: autoHighlight;
-          displaySearching: displaySearching;
-          let items = results;
-          let searchActive = searching;
-          let isInitialized = searchInitialized;
-          let isOpen = isOpen;">
-      <div class="completer-dropdown" ctrDropdown *ngIf="isInitialized && isOpen && (( items?.length > 0|| (displayNoResults && !searchActive)) || (searchActive && displaySearching))">
-          <div *ngIf="searchActive && displaySearching" class="completer-searching">{{_textSearching}}</div>
-          <div *ngIf="!searchActive && (!items || items?.length === 0)" class="completer-no-results">{{_textNoResults}}</div>
-          <div class="completer-row-wrapper" *ngFor="let item of items; let rowIndex=index">
-              <div class="completer-row" [ctrRow]="rowIndex" [dataItem]="item">
-                  <div *ngIf="item.image || item.image === ''" class="completer-image-holder">
-                      <img *ngIf="item.image != ''" src="{{item.image}}" class="completer-image" />
-                      <div *ngIf="item.image === ''" class="completer-image-default"></div>
-                  </div>
-                  <div class="completer-item-text" [ngClass]="{'completer-item-text-image': item.image || item.image === '' }">
-                      <completer-list-item class="completer-title" [text]="item.title" [matchClass]="matchClass" [searchStr]="searchStr" [type]="'title'"></completer-list-item>
-                      <completer-list-item *ngIf="item.description && item.description != ''" class="completer-description" [text]="item.description"
-                          [matchClass]="matchClass" [searchStr]="searchStr" [type]="'description'">
-                      </completer-list-item>
-                  </div>
-              </div>
-          </div>
-      </div>
-  </div>
+  <ngx-completer-dropdown [searchActive]="searchActive" [error]="error" [items]="items" (itemClicked)="onSelected($event)"></ngx-completer-dropdown>
 </div>

@@ -1,15 +1,15 @@
 import { EventEmitter } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, map } from 'rxjs/operators';
 import { DataService } from './data.service';
 import { CompleterItem } from '../model/completer-item';
 import { Subscription } from 'rxjs/Subscription';
+import { Observable } from 'rxjs/Observable';
+import 'rxjs/add/operator/map';
 
 export class RemoteDataService extends DataService {
   public dataSourceChange: EventEmitter<void> = new EventEmitter<void>();
 
   private _remoteUrl: string;
-  private remoteSearch: Subscription;
   private _urlFormater: ((term: string) => string) | null = null;
   private _dataField: string | null = null;
   private _requestOptions: any;
@@ -37,9 +37,7 @@ export class RemoteDataService extends DataService {
     this._requestOptions = requestOptions;
   }
 
-  public search(term: string): void {
-    this.cancel();
-    // let params = {};
+  public search(term: string): Observable<CompleterItem[]> {
     let url = '';
     if (this._urlFormater) {
       url = this._urlFormater(term);
@@ -47,25 +45,11 @@ export class RemoteDataService extends DataService {
       url = this._remoteUrl + encodeURIComponent(term);
     }
 
-    this.remoteSearch = this.http
-      .get(url, Object.assign({}, this._requestOptions))
-      .pipe(
-      map((data: any) => {
-        const matches = this.extractValue(data, this._dataField);
-        return this.extractMatches(matches, term);
-      }),
-      catchError(() => [])
-      )
-      .subscribe((matches: any[]) => {
-        const results = this.processResults(matches);
-        this.next(results);
-      });
-  }
-
-  public cancel() {
-    if (this.remoteSearch) {
-      this.remoteSearch.unsubscribe();
-    }
+    return this.http
+      .get<any[]>(url, Object.assign({}, this._requestOptions))
+      .map(data => this.extractValue(data, this._dataField))
+      .map(values => this.extractMatches(values, term))
+      .map(matches => this.processResults(matches));
   }
 
   public convertToItem(data: any): CompleterItem | null {

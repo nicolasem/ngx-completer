@@ -2,19 +2,18 @@ import { Injectable, EventEmitter } from '@angular/core';
 import { Subject } from 'rxjs/Subject';
 import { CompleterItem } from '../model/completer-item';
 import { isNil } from '../globals/globals';
+import { Observable } from 'rxjs/Observable';
 
-export abstract class DataService extends Subject<CompleterItem[]> {
+export abstract class DataService {
   public dataSourceChange?: EventEmitter<void>;
   protected _searchFields: string;
   protected _titleField: string;
   protected _descriptionField: string;
-  protected _imageField: string;
 
   constructor() {
-    super();
   }
 
-  public abstract search(term: string): void;
+  public abstract search(term: string): Observable<CompleterItem[]>;
 
   public cancel() { }
 
@@ -33,13 +32,7 @@ export abstract class DataService extends Subject<CompleterItem[]> {
     return this;
   }
 
-  public imageField(imageField: string) {
-    this._imageField = imageField;
-    return this;
-  }
-
   public convertToItem(data: any) {
-    let image: string | null = null;
     let formattedText: string;
     let formattedDesc: string | null = null;
 
@@ -57,10 +50,6 @@ export abstract class DataService extends Subject<CompleterItem[]> {
       formattedDesc = this.extractValue(data, this._descriptionField);
     }
 
-    if (this._imageField) {
-      image = this.extractValue(data, this._imageField);
-    }
-
     if (isNil(formattedText)) {
       return null;
     }
@@ -68,7 +57,6 @@ export abstract class DataService extends Subject<CompleterItem[]> {
     return {
       title: formattedText,
       description: formattedDesc,
-      image: image,
       originalObject: data
     } as CompleterItem;
 

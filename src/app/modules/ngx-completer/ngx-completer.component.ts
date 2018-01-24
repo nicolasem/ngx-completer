@@ -3,12 +3,23 @@ import {
   Component, Input, OnInit, Output, EventEmitter, ViewChild, ElementRef, forwardRef, AfterViewInit, AfterViewChecked, ChangeDetectorRef
 } from '@angular/core';
 import { CompleterItem } from './model/completer-item';
-import { CtrCompleterDirective } from './directives/ctr-completer.directive';
 import { TEXT_NO_RESULTS, TEXT_SEARCHING, PAUSE, MIN_SEARCH_LENGTH, MAX_CHARS, isNil } from './globals/globals';
 import { DataService } from './services/data.service';
 import { CompleterService } from './services/completer.service';
-
-const noop = () => { };
+import { Subscription } from 'rxjs/Subscription';
+import { Observable } from 'rxjs/Observable';
+import { Subscriber } from 'rxjs/Subscriber';
+import 'rxjs/add/operator/debounce';
+import 'rxjs/add/operator/debounceTime';
+import 'rxjs/add/observable/fromEvent';
+import 'rxjs/add/observable/timer';
+import 'rxjs/add/observable/of';
+import 'rxjs/add/operator/switchMap';
+import 'rxjs/add/operator/filter';
+import 'rxjs/add/operator/catch';
+import 'rxjs/add/operator/do';
+import { Subject } from 'rxjs/Subject';
+import { NgxCompleterDropdownComponent } from './components/ngx-completer-dropdown/ngx-completer-dropdown.component';
 
 @Component({
   // tslint:disable-next-line:component-selector
@@ -21,65 +32,41 @@ const noop = () => { };
     multi: true
   }]
 })
-export class NgxCompleterComponent implements OnInit, ControlValueAccessor, AfterViewChecked, AfterViewInit {
+export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
   @Input() public dataService: DataService;
   @Input() public inputName = '';
   @Input() public inputId = '';
   @Input() public pause = PAUSE;
   @Input() public minSearchLength = MIN_SEARCH_LENGTH;
   @Input() public maxChars = MAX_CHARS;
-  @Input() public overrideSuggested = false;
-  @Input() public clearSelected = false;
   @Input() public clearUnselected = false;
-  @Input() public fillHighlighted = true;
-  @Input() public placeholder = '';
-  @Input() public matchClass: string;
-  @Input() public fieldTabindex: number;
   @Input() public autoMatch = false;
   @Input() public autoMatchBy: string;
   @Input() public disableInput = false;
   @Input() public inputClass: string;
-  @Input() public autofocus = false;
-  @Input() public openOnFocus = false;
-  @Input() public openOnClick = false;
-  @Input() public selectOnClick = false;
-  @Input() public selectOnFocus = false;
   @Input() public initialValue: any;
   @Input() public autoHighlight = false;
 
   @Output() public selected = new EventEmitter<CompleterItem>();
-  @Output() public highlighted = new EventEmitter<CompleterItem>();
-  @Output() public blurEvent = new EventEmitter();
-  @Output() public click = new EventEmitter();
-  @Output() public focusEvent = new EventEmitter();
-  @Output() public opened = new EventEmitter<boolean>();
-  @Output() public keyup: EventEmitter<any> = new EventEmitter();
-  @Output() public keydown: EventEmitter<any> = new EventEmitter();
+  @ViewChild(NgxCompleterDropdownComponent) public completerDropdown: NgxCompleterDropdownComponent;
 
-  @ViewChild(CtrCompleterDirective) public completer: CtrCompleterDirective;
-  @ViewChild('ctrInput') public ctrInput: ElementRef;
+  public searchActive = false;
+  public items: any[];
+  public error: any;
+  public textInputSubject: Subject<string>;
 
-  public control = new FormControl('');
-  public displaySearching = true;
-  public displayNoResults = true;
-  public _textNoResults = TEXT_NO_RESULTS;
-  public _textSearching = TEXT_SEARCHING;
-
-  private _onTouchedCallback: () => void = noop;
-  private _onChangeCallback: (_: any) => void = noop;
-  private _focus = false;
-  private _open = false;
+  public doBlur: boolean;
   private _searchStr = '';
+  private _selectedItem: CompleterItem;
+  private _onChangeCallback: (val: any) => void;
+  private _onTouched: (val: any) => void;
 
   constructor(private completerService: CompleterService, private cdr: ChangeDetectorRef) { }
 
   public get value(): any { return this.searchStr; }
 
   public set value(v: any) {
-    if (v !== this.searchStr) {
-      this.searchStr = v;
-    }
-    // Propagate the change in any case
+    this.searchStr = v;
     this._onChangeCallback(v);
   }
 
@@ -95,42 +82,17 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor, Afte
     }
   }
 
-  public ngAfterViewInit() {
-    if (this.autofocus) {
-      this._focus = true;
-    }
-  }
-
-  public ngAfterViewChecked(): void {
-    if (this._focus) {
-      setTimeout(
-        () => {
-          this.ctrInput.nativeElement.focus();
-          this._focus = false;
-        },
-        0
-      );
-    }
-  }
-
-  public onTouched() {
-    this._onTouchedCallback();
-  }
-
   public writeValue(value: any) {
     console.log(`Initial value: ${value}`);
     this.searchStr = value;
-    if (!isNil(value) && value.length > 0) {
-      this.completer.hasSelected = true;
-    }
   }
 
   public registerOnChange(fn: any) {
     this._onChangeCallback = fn;
   }
 
-  public registerOnTouched(fn: any) {
-    this._onTouchedCallback = fn;
+  registerOnTouched(fn: any): void {
+    this._onTouched = fn;
   }
 
   public setDisabledState(isDisabled: boolean): void {
@@ -139,7 +101,7 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor, Afte
 
   @Input()
   public set datasource(source: DataService | string | Array<any>) {
-    if (source) {
+    if (source != null) {
       if (source instanceof Array) {
         this.dataService = this.completerService.local(source);
       } else if (typeof (source) === 'string') {
@@ -150,90 +112,117 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor, Afte
     }
   }
 
-  @Input()
-  public set textNoResults(text: string) {
-    if (this._textNoResults !== text) {
-      this._textNoResults = text;
-      this.displayNoResults = !!this._textNoResults && this._textNoResults !== 'false';
-    }
-  }
-
-  @Input()
-  public set textSearching(text: string) {
-    if (this._textSearching !== text) {
-      this._textSearching = text;
-      this.displaySearching = !!this._textSearching && this._textSearching !== 'false';
-    }
-  }
-
   public ngOnInit() {
-    this.completer.selected.subscribe((item: CompleterItem) => {
+    this.textInputSubject = new Subject<string>();
+    this.textInputSubject
+    .do(value => this._onChangeCallback(value))
+    .map(value => {
+      return {
+        value: value,
+        hasValue: value != null && value.length > this.minSearchLength
+      };
+    }).filter(text => {
+      if (this._selectedItem != null) {
+        if (text.hasValue && this._selectedItem.title === text.value) {
+          return false;
+        } else {
+          this.onSelected(null);
+        }
+      }
+
+      return true;
+    }).debounce(text => {
+      this.items = null;
+
+      if (text.hasValue) {
+        return Observable.timer(this.pause);
+      } else {
+        // clear messages and cancel remaining requests with switchMap immediately
+        return Observable.timer(0);
+      }
+    }).switchMap(text => {
+      if (text.hasValue) {
+        if (this.dataService != null) {
+          this.searchActive = true;
+          return this.dataService.search(text.value);
+        } else {
+          return Observable.of<CompleterItem[]>([]);
+        }
+      } else {
+        return Observable.of(null);
+      }
+    }).catch(err => {
+      console.error(err);
+      this.error = err;
+      return Observable.of(null);
+    }).subscribe(results => {
+      this.searchActive = false;
+      const autoMatch = this.getAutoMatch(results);
+
+      // if a match is found select it
+      // else, display the results
+      if (autoMatch != null) {
+        this.onSelected(autoMatch);
+        this.items = null;
+      } else {
+        this.items = results;
+      }
+    });
+  }
+
+  private getAutoMatch(results: CompleterItem[]): CompleterItem {
+    const text = this._searchStr;
+    if (this.autoMatch && results && results.length === 1 && !isNil(text)) {
+      const result = results[0];
+      const autoMatchedBy = this.autoMatchBy != null && result.originalObject[this.autoMatchBy] === text;
+      const autoMatched = result.title && result.title.toLocaleLowerCase() === text.toLocaleLowerCase();
+
+      if (autoMatched || autoMatchedBy) {
+        return result;
+      }
+    }
+
+    return null;
+  }
+
+  public onSelected(item: CompleterItem) {
+    this.items = null;
+    if (this._selectedItem !== item) {
+      this._selectedItem = item;
+
+      if (item != null) {
+        this._searchStr = item.title;
+        this._onChangeCallback(this._searchStr);
+      }
+
       this.selected.emit(item);
-    });
-    this.completer.highlighted.subscribe((item: CompleterItem) => {
-      this.highlighted.emit(item);
-    });
-    this.completer.opened.subscribe((isOpen: boolean) => {
-      this._open = isOpen;
-      this.opened.emit(isOpen);
-    });
-  }
-
-  public onBlur() {
-    this.blurEvent.emit();
-    this.onTouched();
-    this.cdr.detectChanges();
-  }
-
-  public onFocus() {
-    this.focusEvent.emit();
-    this.onTouched();
-  }
-
-  public onClick(event: any) {
-    this.click.emit(event);
-    this.onTouched();
-  }
-
-  public onKeyup(event: any) {
-    this.keyup.emit(event);
-    event.stopPropagation();
-  }
-
-  public onKeydown(event: any) {
-    this.keydown.emit(event);
-    event.stopPropagation();
-  }
-
-  public onChange(value: string) {
-    this.value = value;
-  }
-
-  public open() {
-    this.completer.open();
-  }
-
-  public close() {
-    this.completer.clear();
-  }
-
-  public focus(): void {
-    if (this.ctrInput) {
-      this.ctrInput.nativeElement.focus();
-    } else {
-      this._focus = true;
     }
   }
 
-  public blur(): void {
-    if (this.ctrInput) {
-      this.ctrInput.nativeElement.blur();
-    } else {
-      this._focus = false;
+  public doSelection() {
+    const item = this.completerDropdown.getSelected();
+    if (item != null) {
+      this.onSelected(item);
     }
   }
 
-  public isOpen() {
-    return this._open;
+  public onFocus(event: any) {
+    this.completerDropdown.hovering = false;
+  }
+
+  public onBlur(event: any) {
+    if (this.completerDropdown.hovering) {
+      event.preventDefault();
+      return;
+    }
+
+    if (this._selectedItem == null) {
+      this._searchStr = null;
+      this._onChangeCallback(this._searchStr);
+    } else if (this._searchStr !== this._selectedItem.title) {
+      this.onSelected(null);
+    }
+
+    this.items = null;
   }
 }

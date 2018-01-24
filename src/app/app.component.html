@@ -1,32 +1,31 @@
 <h3>Automatch By</h3>
-<p>Local data of quotes - <code>autoMatchBy</code>, <code>autoMatch</code>, <code>inputId</code> and <code>required</code> and <code>clearUnselected</code></p>
+<p>Local data of quotes -
+  <code>autoMatchBy</code>,
+  <code>autoMatch</code>,
+  <code>inputId</code> and
+  <code>required</code> and
+  <code>clearUnselected</code>
+</p>
 
 <div class="card">
-    <div class="card-block">
-        <div class="form-group row"
-             [class.has-danger]="quoteRequired.invalid">
-            <div class="col-5">
-                <ngx-completer name="quoteRequired"
-                               [inputId]="'completer1'"
-                               [datasource]="dataService"
-                               [(ngModel)]="quote"
-                               [minSearchLength]="0"
-                               [placeholder]="'Search quote by author name or id'"
-                               [textNoResults]="'No quotes found'"
-                               #quoteRequired="ngModel"
-                               [autoMatch]="true"
-                               [autoMatchBy]="'id'"
-                               [inputClass]="{ 'form-control': true, 'form-control-danger': quoteRequired.invalid }"
-                               [clearUnselected]="true"
-                               required>
-                </ngx-completer>
-                <div *ngIf="!quoteRequired.valid"
-                     class="form-control-feedback">Sorry, quote is required
-                </div>
-            </div>
-            <div class="col-6">
-                <p class="form-control-static"><b> {{quote}}</b></p>
-            </div>
+  <div class="card-block">
+    <div class="form-group row" [class.has-danger]="quoteRequired.invalid">
+      <div class="col-5">
+        <ngx-completer name="quoteRequired" [inputId]="'completer1'" [datasource]="dataService" [(ngModel)]="quote" (selected)="onSelectedQuote($event)"
+          [minSearchLength]="0" #quoteRequired="ngModel" [autoMatch]="true" [autoMatchBy]="'id'" [inputClass]="{ 'form-control': true, 'form-control-danger': quoteRequired.invalid }"
+          [clearUnselected]="true" [pause]="1000" required>
+        </ngx-completer>
+        <div *ngIf="!quoteRequired.valid" class="form-control-feedback">Sorry, quote is required
         </div>
+      </div>
+      <div class="col-6">
+        <p class="form-control-static">
+          <b>Displayed text: {{quote}}</b>
+        </p>
+        <p class="form-control-static">
+          <b>Selected item: {{selectedQuote}}</b>
+        </p>
+      </div>
     </div>
+  </div>
 </div>
