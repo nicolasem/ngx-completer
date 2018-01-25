@@ -1,7 +1,7 @@
 <div class="completer-holder" ctrCompleter>
   <input [attr.id]="inputId.length > 0 ? inputId : null" type="search" [ngClass]="inputClass" [(ngModel)]="searchStr" (ngModelChange)="textInputSubject.next($event)"
     [attr.name]="inputName" [attr.maxlength]="maxChars" [disabled]="disableInput" autocomplete="off" autocorrect="off" autocapitalize="off"
-    ngx-completer-input (moveDown)="completerDropdown.moveDown()" (moveUp)="completerDropdown.moveUp()" (selection)="doSelection()"
+    ngx-completer-input (moveDown)="completerDropdown.moveDown()" (moveUp)="completerDropdown.moveUp()" (selection)="onSelection()"
   (blur)="onBlur($event)" (focus)="onFocus($event)"/>
 
   <ngx-completer-dropdown [searchActive]="searchActive" [error]="error" [items]="items" (itemClicked)="onSelected($event)"></ngx-completer-dropdown>

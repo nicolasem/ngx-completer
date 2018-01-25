@@ -1,7 +1,6 @@
 import { Injectable, EventEmitter } from '@angular/core';
 import { Subject } from 'rxjs/Subject';
 import { CompleterItem } from '../model/completer-item';
-import { isNil } from '../globals/globals';
 import { Observable } from 'rxjs/Observable';
 
 export abstract class DataService {
@@ -50,7 +49,7 @@ export abstract class DataService {
       formattedDesc = this.extractValue(data, this._descriptionField);
     }
 
-    if (isNil(formattedText)) {
+    if (formattedText == null) {
       return null;
     }
 

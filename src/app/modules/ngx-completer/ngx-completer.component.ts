@@ -3,7 +3,7 @@ import {
   Component, Input, OnInit, Output, EventEmitter, ViewChild, ElementRef, forwardRef, AfterViewInit, AfterViewChecked, ChangeDetectorRef
 } from '@angular/core';
 import { CompleterItem } from './model/completer-item';
-import { TEXT_NO_RESULTS, TEXT_SEARCHING, PAUSE, MIN_SEARCH_LENGTH, MAX_CHARS, isNil } from './globals/globals';
+import { TEXT_NO_RESULTS, TEXT_SEARCHING, PAUSE, MIN_SEARCH_LENGTH, MAX_CHARS } from './globals/globals';
 import { DataService } from './services/data.service';
 import { CompleterService } from './services/completer.service';
 import { Subscription } from 'rxjs/Subscription';
@@ -32,7 +32,8 @@ import { NgxCompleterDropdownComponent } from './components/ngx-completer-dropdo
     multi: true
   }]
 })
-export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
+export class NgxCompleterComponent implements OnInit, ControlValueAccessor, AfterViewChecked {
+
   @Input() public dataService: DataService;
   @Input() public inputName = '';
   @Input() public inputId = '';
@@ -44,8 +45,24 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
   @Input() public autoMatchBy: string;
   @Input() public disableInput = false;
   @Input() public inputClass: string;
-  @Input() public initialValue: any;
   @Input() public autoHighlight = false;
+
+  @Input() public set initialValue(value: any) {
+    if (this.dataService != null && typeof this.dataService.convertToItem === 'function') {
+      const item = this.dataService.convertToItem(value);
+      this._selectedItem = item;
+    } else if (typeof value === 'string') {
+      this._selectedItem = {
+        title: value,
+        originalObject: null
+      };
+    }
+
+    if (this._onChangeCallback != null) {
+      this.searchStr = this._selectedItem != null ? null : this._selectedItem.title;
+      this._onChangeCallback(this.searchStr);
+    }
+  }
 
   @Output() public selected = new EventEmitter<CompleterItem>();
   @ViewChild(NgxCompleterDropdownComponent) public completerDropdown: NgxCompleterDropdownComponent;
@@ -55,36 +72,23 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
   public error: any;
   public textInputSubject: Subject<string>;
 
-  public doBlur: boolean;
-  private _searchStr = '';
+  private searchStr = '';
   private _selectedItem: CompleterItem;
+  private _inputHasFocus: boolean;
   private _onChangeCallback: (val: any) => void;
   private _onTouched: (val: any) => void;
 
-  constructor(private completerService: CompleterService, private cdr: ChangeDetectorRef) { }
-
-  public get value(): any { return this.searchStr; }
-
-  public set value(v: any) {
-    this.searchStr = v;
-    this._onChangeCallback(v);
-  }
-
-  public get searchStr() {
-    return this._searchStr;
-  }
-
-  public set searchStr(value: string) {
-    if (typeof value === 'string' || isNil(value)) {
-      this._searchStr = value;
-    } else {
-      this._searchStr = JSON.stringify(value);
-    }
-  }
+  constructor(private completerService: CompleterService) { }
 
   public writeValue(value: any) {
-    console.log(`Initial value: ${value}`);
     this.searchStr = value;
+  }
+
+  ngAfterViewChecked(): void {
+    if (this._selectedItem != null) {
+      this.searchStr = this._selectedItem.title;
+      this._onChangeCallback(this.searchStr);
+    }
   }
 
   public registerOnChange(fn: any) {
@@ -115,66 +119,78 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
   public ngOnInit() {
     this.textInputSubject = new Subject<string>();
     this.textInputSubject
-    .do(value => this._onChangeCallback(value))
-    .map(value => {
-      return {
-        value: value,
-        hasValue: value != null && value.length > this.minSearchLength
-      };
-    }).filter(text => {
-      if (this._selectedItem != null) {
-        if (text.hasValue && this._selectedItem.title === text.value) {
+      .do(value => this._onChangeCallback(value))
+      .map(value => {
+        return {
+          value: value,
+          hasValue: value != null && value.length > this.minSearchLength
+        };
+      }).filter(text => {
+        // if the text matches the previously selected item, do nothing
+        if (text.hasValue && this._selectedItem != null && this._selectedItem.title === text.value) {
           return false;
-        } else {
+        }
+
+        return true;
+      })
+      .do(text => {
+        // clear the results
+        this.items = null;
+
+        // if an item was previously selected, clear it
+        if (this._selectedItem != null) {
           this.onSelected(null);
         }
-      }
-
-      return true;
-    }).debounce(text => {
-      this.items = null;
-
-      if (text.hasValue) {
-        return Observable.timer(this.pause);
-      } else {
-        // clear messages and cancel remaining requests with switchMap immediately
-        return Observable.timer(0);
-      }
-    }).switchMap(text => {
-      if (text.hasValue) {
-        if (this.dataService != null) {
-          this.searchActive = true;
-          return this.dataService.search(text.value);
+      })
+      .debounce(text => {
+        if (text.hasValue) {
+          return Observable.timer(this.pause);
         } else {
-          return Observable.of<CompleterItem[]>([]);
+          // clear messages and cancel remaining requests with switchMap immediately
+          return Observable.timer(0);
         }
-      } else {
+      }).switchMap(text => {
+        if (text.hasValue) {
+          if (this.dataService != null) {
+            this.searchActive = true;
+            return this.dataService.search(text.value);
+          } else {
+            return Observable.throw('Data service not set');
+          }
+        } else {
+          return Observable.of(null);
+        }
+      }).catch(err => {
+        console.error(err);
+        this.error = err;
         return Observable.of(null);
-      }
-    }).catch(err => {
-      console.error(err);
-      this.error = err;
-      return Observable.of(null);
-    }).subscribe(results => {
-      this.searchActive = false;
-      const autoMatch = this.getAutoMatch(results);
+      }).subscribe(results => {
+        this.searchActive = false;
+        let match: CompleterItem;
 
-      // if a match is found select it
-      // else, display the results
-      if (autoMatch != null) {
-        this.onSelected(autoMatch);
-        this.items = null;
-      } else {
-        this.items = results;
-      }
-    });
+        if (this.autoMatch) {
+          match = this.getSingleMatch(results);
+        }
+
+        // if a match is found select it
+        if (match != null) {
+          this.onSelected(match);
+          // else, display the results if the input is still focused
+        } else if (this.hasFocus) {
+          this.items = results;
+        }
+      });
   }
 
-  private getAutoMatch(results: CompleterItem[]): CompleterItem {
-    const text = this._searchStr;
-    if (this.autoMatch && results && results.length === 1 && !isNil(text)) {
+  private getSingleMatch(results: CompleterItem[]): CompleterItem {
+    const text = this.searchStr;
+
+    // if just a single result exists and the input contains text
+    if (results && results.length === 1 && text != null) {
       const result = results[0];
+      // check if the item matches by configured property (autoMatchBy)
       const autoMatchedBy = this.autoMatchBy != null && result.originalObject[this.autoMatchBy] === text;
+      // check if the item matches by title
       const autoMatched = result.title && result.title.toLocaleLowerCase() === text.toLocaleLowerCase();
 
       if (autoMatched || autoMatchedBy) {
@@ -186,43 +202,72 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
   }
 
   public onSelected(item: CompleterItem) {
+    // clear the dropdown when an item is selected
     this.items = null;
+
+    // if the selected item changed, update it
     if (this._selectedItem !== item) {
       this._selectedItem = item;
 
+      //  update the search input with the item's title
       if (item != null) {
-        this._searchStr = item.title;
-        this._onChangeCallback(this._searchStr);
+        this.searchStr = item.title;
+        this._onChangeCallback(this.searchStr);
       }
 
+      // fire the event
       this.selected.emit(item);
     }
   }
 
-  public doSelection() {
-    const item = this.completerDropdown.getSelected();
+  // triggered when the user hits enter or tab
+  public onSelection() {
+    const item = this.completerDropdown.getHighlighted();
     if (item != null) {
       this.onSelected(item);
     }
   }
 
+  // the input or the dropdown has focus
+  public get hasFocus(): boolean {
+    return this._inputHasFocus || this.completerDropdown.hovering;
+  }
+
+  // the input was focused
   public onFocus(event: any) {
-    this.completerDropdown.hovering = false;
+    this._inputHasFocus = true;
   }
 
   public onBlur(event: any) {
-    if (this.completerDropdown.hovering) {
-      event.preventDefault();
-      return;
-    }
+    // wait for the dropdown to refresh
+    setTimeout(() => {
+      // if focus is on the dropdown
+      if (this.completerDropdown.hasHighlighted && this.completerDropdown.hovering) {
+        // prevent the input blur so the user can keep writing
+        event.preventDefault();
+      } else {
+        // if not, do the blur
+        this.doBlur(event);
+      }
+    }, 200);
+  }
 
-    if (this._selectedItem == null) {
-      this._searchStr = null;
-      this._onChangeCallback(this._searchStr);
-    } else if (this._searchStr !== this._selectedItem.title) {
-      this.onSelected(null);
-    }
+  private doBlur(event: any) {
+    // the input no longer has focus
+    this._inputHasFocus = false;
 
+    // hide the dropdown list
     this.items = null;
+
+    if (this.clearUnselected) {
+      // if no item was selected clear the search input
+      if (this._selectedItem == null) {
+        this.searchStr = null;
+        this._onChangeCallback(this.searchStr);
+      } else if (this.searchStr !== this._selectedItem.title) {
+        // if the search input differs from the previous selected title, clear it
+        this.onSelected(null);
+      }
+    }
   }
 }

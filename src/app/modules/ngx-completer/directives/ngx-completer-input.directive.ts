@@ -25,19 +25,24 @@ export class NgxCompleterInputDirective {
 
   @HostListener('keydown', ['$event'])
   public keyHandler(event: any) {
-    if (event.keyCode === KEY_UP) {
+    const key = event.keyCode;
+    if (key === KEY_UP) {
       this.moveUp.emit();
       event.preventDefault();
     }
 
-    if (event.keyCode === KEY_DW) {
+    if (key === KEY_DW) {
       this.moveDown.emit();
       event.preventDefault();
     }
 
-    if (event.keyCode === KEY_EN) {
+    if (key === KEY_EN) {
       this.selection.emit();
       event.preventDefault();
+    }
+
+    if (key === KEY_TAB) {
+      this.selection.emit();
     }
   }
 }

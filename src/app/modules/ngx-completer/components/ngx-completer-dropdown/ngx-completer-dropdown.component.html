@@ -2,7 +2,8 @@
   <div *ngIf="searchActive" class="completer-message">Please wait...</div>
   <div *ngIf="error" class="completer-message">An error occurred while searching</div>
   <div *ngIf="!searchActive && (items != null && items.length === 0)" class="completer-message">No results found</div>
-  <div (mouseenter)="hovering = true" (mouseleave)="hovering = false" (click)="onClick()" (mouseover)="currentIndex = i" class="completer-row" [class.completer-selected-row]="i === currentIndex" *ngFor="let item of items; let i = index">
+  <div (mouseenter)="hovering = true" (mouseleave)="hovering = false; currentIndex = null" (click)="onClick()" (mouseover)="currentIndex = i"
+    class="completer-row" [class.completer-selected-row]="i === currentIndex" *ngFor="let item of items; let i = index">
     <div class="completer-title">{{item.title}}</div>
     <div *ngIf="item.description" class="completer-description">
       {{item.description}}

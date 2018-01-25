@@ -31,18 +31,22 @@ export class NgxCompleterDropdownComponent implements OnInit {
   }
 
   public onClick() {
-    const item = this.getSelected();
+    const item = this.getHighlighted();
     if (item != null) {
       this.itemClicked.emit(item);
     }
   }
 
-  public getSelected(): CompleterItem {
+  public getHighlighted(): CompleterItem {
     if (this.currentIndex != null && this.items != null && this.items[this.currentIndex] != null) {
       return this.items[this.currentIndex];
     }
 
     return null;
+  }
+
+  public get hasHighlighted(): boolean {
+    return this.getHighlighted() != null;
   }
 
   public moveDown() {
