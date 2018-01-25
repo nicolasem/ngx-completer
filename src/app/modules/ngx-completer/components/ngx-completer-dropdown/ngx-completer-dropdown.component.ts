@@ -18,6 +18,8 @@ export class NgxCompleterDropdownComponent implements OnInit {
     this._items = i;
   }
 
+  @Input() textNoResults: string;
+  @Input() textSearching: string;
   @Input() searchActive: boolean;
   @Input() error: any;
   public currentIndex: number;

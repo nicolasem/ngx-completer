@@ -17,7 +17,7 @@
               <label>Search quotes</label>
               <ngx-completer name="quoteRequired" [inputId]="'completer1'" [datasource]="dataService" [(ngModel)]="quote" (selected)="onSelectedQuote($event)"
                 [minSearchLength]="0" #quoteRequired="ngModel" [autoMatch]="true" [autoMatchBy]="'id'" [inputClass]="{ 'form-control': true, 'is-invalid': quoteRequired.invalid }"
-                [clearUnselected]="quote !== '2'" [pause]="1000" initialValue="Testing initial value" required>
+                [clearUnselected]="quote !== '2'" [pause]="1000" [initialValue]="{ nm: 'Testing initial value' }" textSearching="Searching..." required>
               </ngx-completer>
               <div *ngIf="quoteRequired.invalid">
                 Sorry, quote is required

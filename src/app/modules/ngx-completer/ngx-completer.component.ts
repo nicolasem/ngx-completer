@@ -32,10 +32,13 @@ import { NgxCompleterDropdownComponent } from './components/ngx-completer-dropdo
     multi: true
   }]
 })
-export class NgxCompleterComponent implements OnInit, ControlValueAccessor, AfterViewChecked {
+export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
 
   @Input() public dataService: DataService;
   @Input() public inputName = '';
+  @Input() public placeholder = '';
+  @Input() public textSearching = TEXT_SEARCHING;
+  @Input() public textNoResults = TEXT_NO_RESULTS;
   @Input() public inputId = '';
   @Input() public pause = PAUSE;
   @Input() public minSearchLength = MIN_SEARCH_LENGTH;
@@ -46,21 +49,19 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor, Afte
   @Input() public disableInput = false;
   @Input() public inputClass: string;
   @Input() public autoHighlight = false;
-
+  private _initialValue: any;
   @Input() public set initialValue(value: any) {
-    if (this.dataService != null && typeof this.dataService.convertToItem === 'function') {
-      const item = this.dataService.convertToItem(value);
-      this._selectedItem = item;
-    } else if (typeof value === 'string') {
-      this._selectedItem = {
-        title: value,
-        originalObject: null
-      };
-    }
-
-    if (this._onChangeCallback != null) {
-      this.searchStr = this._selectedItem != null ? null : this._selectedItem.title;
-      this._onChangeCallback(this.searchStr);
+    if (value != null) {
+      if (this.dataService != null && typeof this.dataService.convertToItem === 'function') {
+        setTimeout(() => {
+          const initialItem = this.dataService.convertToItem(value);
+          if (initialItem) {
+            this.onSelected(initialItem);
+          }
+        });
+      } else {
+        this._initialValue = value;
+      }
     }
   }
 
@@ -82,13 +83,6 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor, Afte
 
   public writeValue(value: any) {
     this.searchStr = value;
-  }
-
-  ngAfterViewChecked(): void {
-    if (this._selectedItem != null) {
-      this.searchStr = this._selectedItem.title;
-      this._onChangeCallback(this.searchStr);
-    }
   }
 
   public registerOnChange(fn: any) {
@@ -113,6 +107,11 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor, Afte
       } else {
         this.dataService = source;
       }
+
+      if (this._initialValue != null) {
+        this.initialValue = this._initialValue;
+        this._initialValue = null;
+      }
     }
   }
 
@@ -120,10 +119,11 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor, Afte
     this.textInputSubject = new Subject<string>();
     this.textInputSubject
       .do(value => this._onChangeCallback(value))
+      .do(() => this.searchActive = false)
       .map(value => {
         return {
           value: value,
-          hasValue: value != null && value.length > this.minSearchLength
+          hasValue: value != null && value.length >= this.minSearchLength
         };
       }).filter(text => {
         // if the text matches the previously selected item, do nothing
@@ -264,9 +264,13 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor, Afte
       if (this._selectedItem == null) {
         this.searchStr = null;
         this._onChangeCallback(this.searchStr);
+        // emit empty text to cancel requests
+        this.textInputSubject.next(null);
       } else if (this.searchStr !== this._selectedItem.title) {
         // if the search input differs from the previous selected title, clear it
         this.onSelected(null);
+        // emit empty text to cancel requests
+        this.textInputSubject.next(null);
       }
     }
   }
