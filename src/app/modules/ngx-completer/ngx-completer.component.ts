@@ -73,7 +73,7 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
   public error: any;
   public textInputSubject: Subject<string>;
 
-  private searchStr = '';
+  public searchStr = '';
   private _selectedItem: CompleterItem;
   private _inputHasFocus: boolean;
   private _onChangeCallback: (val: any) => void;
