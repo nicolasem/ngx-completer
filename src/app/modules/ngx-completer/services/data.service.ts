@@ -1,7 +1,6 @@
 import { Injectable, EventEmitter } from '@angular/core';
-import { Subject } from 'rxjs/Subject';
+import { Subject ,  Observable } from 'rxjs';
 import { CompleterItem } from '../model/completer-item';
-import { Observable } from 'rxjs/Observable';
 
 export abstract class DataService {
   public dataSourceChange?: EventEmitter<void>;

@@ -1,6 +1,6 @@
 import { Injectable, EventEmitter } from '@angular/core';
 import { DataService } from './data.service';
-import { Observable } from 'rxjs/Observable';
+import { Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { CompleterItem } from '../model/completer-item';
 

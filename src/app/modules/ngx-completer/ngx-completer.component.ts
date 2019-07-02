@@ -1,3 +1,6 @@
+
+import { throwError as observableThrowError, Subscription, Observable, Subscriber, Subject, pipe, timer, of } from 'rxjs';
+import { tap, map, filter, debounce, switchMap, catchError } from 'rxjs/operators';
 import { FormControl, NG_VALUE_ACCESSOR, ControlValueAccessor } from '@angular/forms';
 import {
   Component, Input, OnInit, Output, EventEmitter, ViewChild, ElementRef, forwardRef, AfterViewInit, AfterViewChecked, ChangeDetectorRef
@@ -6,19 +9,6 @@ import { CompleterItem } from './model/completer-item';
 import { TEXT_NO_RESULTS, TEXT_SEARCHING, PAUSE, MIN_SEARCH_LENGTH, MAX_CHARS } from './globals/globals';
 import { DataService } from './services/data.service';
 import { CompleterService } from './services/completer.service';
-import { Subscription } from 'rxjs/Subscription';
-import { Observable } from 'rxjs/Observable';
-import { Subscriber } from 'rxjs/Subscriber';
-import 'rxjs/add/operator/debounce';
-import 'rxjs/add/operator/debounceTime';
-import 'rxjs/add/observable/fromEvent';
-import 'rxjs/add/observable/timer';
-import 'rxjs/add/observable/of';
-import 'rxjs/add/operator/switchMap';
-import 'rxjs/add/operator/filter';
-import 'rxjs/add/operator/catch';
-import 'rxjs/add/operator/do';
-import { Subject } from 'rxjs/Subject';
 import { NgxCompleterDropdownComponent } from './components/ngx-completer-dropdown/ngx-completer-dropdown.component';
 
 @Component({
@@ -118,22 +108,20 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
   public ngOnInit() {
     this.textInputSubject = new Subject<string>();
     this.textInputSubject
-      .do(value => this._onChangeCallback(value))
-      .do(() => this.searchActive = false)
-      .map(value => {
+      .pipe(tap(value => this._onChangeCallback(value)), tap(() => this.searchActive = false))
+      .pipe(map(value => {
         return {
           value: value,
           hasValue: value != null && value.length >= this.minSearchLength
         };
-      }).filter(text => {
+      })).pipe(filter(text => {
         // if the text matches the previously selected item, do nothing
         if (text.hasValue && this._selectedItem != null && this._selectedItem.title === text.value) {
           return false;
         }
 
         return true;
-      })
-      .do(text => {
+      })).pipe(tap(text => {
         // clear the results
         this.items = null;
 
@@ -141,30 +129,29 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
         if (this._selectedItem != null) {
           this.onSelected(null);
         }
-      })
-      .debounce(text => {
+      })).pipe(debounce(text => {
         if (text.hasValue) {
-          return Observable.timer(this.pause);
+          return timer(this.pause);
         } else {
           // clear messages and cancel remaining requests with switchMap immediately
-          return Observable.timer(0);
+          return timer(0);
         }
-      }).switchMap(text => {
+      })).pipe(switchMap(text => {
         if (text.hasValue) {
           if (this.dataService != null) {
             this.searchActive = true;
             return this.dataService.search(text.value);
           } else {
-            return Observable.throw('Data service not set');
+            return observableThrowError('Data service not set');
           }
         } else {
-          return Observable.of(null);
+          return of(null);
         }
-      }).catch(err => {
+      })).pipe(catchError(err => {
         console.error(err);
         this.error = err;
-        return Observable.of(null);
-      }).subscribe(results => {
+        return of(null);
+      })).subscribe(results => {
         this.searchActive = false;
         let match: CompleterItem;
 

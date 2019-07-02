@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@angular/core';
 import { RemoteDataService } from './remote-data.service';
 import { LocalDataService } from './local-data.service';
-import { Observable } from 'rxjs/Observable';
+import { Observable } from 'rxjs';
 
 @Injectable()
 export class CompleterService {
