@@ -1,6 +1,6 @@
 
 import { throwError as observableThrowError, Subscription, Observable, Subscriber, Subject, pipe, timer, of } from 'rxjs';
-import { tap, map, filter, debounce, switchMap, catchError } from 'rxjs/operators';
+import { tap, map, filter, debounce, switchMap, catchError, delay } from 'rxjs/operators';
 import { FormControl, NG_VALUE_ACCESSOR, ControlValueAccessor } from '@angular/forms';
 import {
   Component, Input, OnInit, Output, EventEmitter, ViewChild, ElementRef, forwardRef, AfterViewInit, AfterViewChecked, ChangeDetectorRef
@@ -150,7 +150,12 @@ export class NgxCompleterComponent implements OnInit, ControlValueAccessor {
       })).pipe(catchError(err => {
         console.error(err);
         this.error = err;
-        return of(null);
+        
+        return of(null).pipe(
+          // remove error after it's shown
+          delay(3000),
+          tap(() => this.error = null)
+        );
       })).subscribe(results => {
         this.searchActive = false;
         let match: CompleterItem;
